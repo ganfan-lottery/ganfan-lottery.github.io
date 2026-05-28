@@ -868,6 +868,8 @@ function getHist()     { return lsGet('food_hist', []); }
 function setHist(arr)  { lsSet('food_hist', arr.slice(0, 50)); }
 function getDislikes() { return lsGet('food_dislikes', []); }
 function setDislikes(arr) { lsSet('food_dislikes', arr); }
+function getRecent() { return lsGet('food_recent', []); }
+function setRecent(arr) { lsSet('food_recent', arr); }
 function getLocCache() { return lsGet('food_loc', null); }
 function setLocCache(v){ lsSet('food_loc', v); }
 
@@ -972,7 +974,20 @@ function drawFood() {
     if (pool.length === 0) { showToast('所有美食都被你 pass 了，已重置屏蔽列表'); resetDislikesSilent(); pool = [...FOOD_DB]; }
   }
 
-  const target = pool[Math.floor(Math.random() * pool.length)];
+  // 防重复：记录最近抽中的菜品，降低重复率
+  const recent = getRecent();
+  // 优先从非最近池中抽取，最近记录至少覆盖池子 30% 但不低于 5 条
+  const recentLimit = Math.max(5, Math.floor(pool.length * 0.3));
+  const recentSet = new Set(recent.slice(0, recentLimit));
+  let freshPool = pool.filter(f => !recentSet.has(f.id));
+  // 如果过滤后池子为空，回退到全池
+  if (freshPool.length === 0) freshPool = pool;
+
+  const target = freshPool[Math.floor(Math.random() * freshPool.length)];
+
+  // 记录到最近列表（保留最近 30 条）
+  const newRecent = [target.id, ...recent.filter(id => id !== target.id)].slice(0, 30);
+  setRecent(newRecent);
 
   // 快速闪烁效果（0.6秒内随机切换显示临时名称）
   const resultNameEl = document.getElementById('resultName');
